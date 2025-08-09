@@ -1,10 +1,26 @@
 {
-  "name": "Hello Extensions",
-  "description": "Base Level Extension",
-  "version": "1.0",
   "manifest_version": 3,
+  "name": "Job Scraper",
+  "version": "1.1",
+  "description": "Scrapes job details from popular job sites.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://*.indeed.com/*",
+    "*://*.glassdoor.com/*",
+    "<all_urls>"
+  ],
   "action": {
-    "default_popup": "popup/index.html",
-    "default_icon": "images/hello_world.png"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
   }
 }
