@@ -3,14 +3,88 @@
 <head>
     <title>Job Scraper</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 10px; }
+        :root{font-family: Arial, sans-serif;}
+        body { font-family: Arial, sans-serif; padding: 12px; width:420px; box-sizing:border-box; }
         button { padding: 8px 12px; cursor: pointer; }
+        .profile-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:start; }
+        .profile-grid .full{ grid-column: 1 / -1; }
+        label{ font-size:12px; color:#333; }
+        input, textarea{ width:100%; box-sizing:border-box; padding:6px; border:1px solid #ddd; border-radius:4px; }
+        #controls{ display:flex; gap:8px; margin-top:8px; }
+        hr{ margin:12px 0; }
+        /* preview area */
+        .preview-box{ background:#fff; border:1px solid #e6e6e6; padding:8px; border-radius:6px; }
+        .tabs{ display:flex; gap:6px; margin-bottom:8px; }
+        .tab{ padding:6px 10px; border-radius:4px; background:#f1f1f1; cursor:pointer; font-size:13px; }
+        .tab.active{ background:#0078d4; color:#fff; }
+        .preview-content{ max-height:260px; overflow:auto; padding:6px; }
+        .modal{ position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; }
+        .modal .dialog{ background:white; width:90%; max-width:720px; padding:12px; border-radius:6px; }
+        .small{ font-size:12px; color:#666; }
     </style>
 </head>
 <body>
     <h3>Job Scraper</h3>
-    <button id="scrapeBtn">Scrape Job Info</button>
-    <p id="status"></p>
+    <div>
+        <h4>Your Profile</h4>
+        <div class="profile-grid">
+            <div>
+                <label for="name">Name</label>
+                <input id="name" type="text" placeholder="Full name" />
+            </div>
+            <div>
+                <label for="skills">Skills</label>
+                <input id="skills" type="text" placeholder="Python, React, SQL" />
+            </div>
+            <div class="full">
+                <label for="experience">Experience summary</label>
+                <textarea id="experience" rows="3" placeholder="2 years at ..."></textarea>
+            </div>
+            <div class="full">
+                <label for="projects">Key projects</label>
+                <input id="projects" type="text" placeholder="Project A, Project B" />
+            </div>
+        </div>
+        <div id="controls">
+            <button id="saveProfile">Save Profile</button>
+            <button id="clearProfile">Clear</button>
+            <span class="small">Saved to extension storage</span>
+        </div>
+    </div>
+    <hr>
+    <div style="display:flex; gap:8px; align-items:center;">
+        <button id="scrapeBtn">Scrape Job Info</button>
+        <div id="status" class="small" style="margin-left:6px"></div>
+    </div>
+    <div id="generation" style="margin-top:10px; display:none;">
+        <h4>Generated Output</h4>
+        <div class="preview-box">
+            <div class="tabs">
+                <div id="tabCover" class="tab active">Cover Letter</div>
+                <div id="tabCV" class="tab">CV</div>
+            </div>
+            <div id="previewCover" class="preview-content"></div>
+            <div id="previewCV" class="preview-content" style="display:none;"></div>
+            <div style="margin-top:8px; display:flex; gap:8px;">
+                <button id="downloadDocx">Download DOCX</button>
+                <button id="downloadPdf">Download PDF</button>
+                <button id="copyPreview">Copy Current</button>
+                <button id="editPreview">Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- edit modal -->
+    <div id="editModal" class="modal">
+        <div class="dialog">
+            <h4>Edit Preview</h4>
+            <textarea id="editText" rows="10" style="width:100%"></textarea>
+            <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+                <button id="saveEdit">Save</button>
+                <button id="closeEdit">Close</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="popup.js"></script>
 </body>
 </html>
