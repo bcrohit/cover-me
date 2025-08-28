@@ -14,7 +14,7 @@ def get_prompt(prompt_file, prompt_dir=r'assets\prompts'):
         str: prompt
     """
     prompt_path = os.path.join(prompt_dir, prompt_file)
-    return open(prompt_path, 'r').read()
+    return open(prompt_path, 'r', encoding='utf-8').read()
 
 def get_job_data(job_data_file, job_data_dir=r'assets\contents'):
     """Load job data from a file.
@@ -27,4 +27,4 @@ def get_job_data(job_data_file, job_data_dir=r'assets\contents'):
         dict: job data
     """
     job_data_path = os.path.join(job_data_dir, job_data_file)
-    return json.load(open(job_data_path, 'r'))
+    return json.load(open(job_data_path, 'r', encoding='utf-8'))
