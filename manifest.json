@@ -16,9 +16,9 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "extension/popup/popup.html",
     "default_icon": {
-      "16": "images/icon.png"
+      "16": "assets/icons/icon.png"
     }
   },
   "background": {
