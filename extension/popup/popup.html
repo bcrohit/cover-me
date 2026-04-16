@@ -3,61 +3,281 @@
 <head>
     <title>Job Scraper</title>
     <style>
-        :root{font-family: Arial, sans-serif;}
-        body { font-family: Arial, sans-serif; padding: 12px; width:420px; box-sizing:border-box; }
-        button { padding: 8px 12px; cursor: pointer; }
-        .profile-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:start; }
-        .profile-grid .full{ grid-column: 1 / -1; }
-        label{ font-size:12px; color:#333; }
-        input, textarea{ width:100%; box-sizing:border-box; padding:6px; border:1px solid #ddd; border-radius:4px; }
-        #controls{ display:flex; gap:8px; margin-top:8px; }
-        hr{ margin:12px 0; }
-        /* preview area */
-        .preview-box{ background:#fff; border:1px solid #e6e6e6; padding:8px; border-radius:6px; }
-        .tabs{ display:flex; gap:6px; margin-bottom:8px; }
-        .tab{ padding:6px 10px; border-radius:4px; background:#f1f1f1; cursor:pointer; font-size:13px; }
-        .tab.active{ background:#0078d4; color:#fff; }
-        .preview-content{ max-height:260px; overflow:auto; padding:6px; }
-        .modal{ position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; }
-        .modal .dialog{ background:white; width:90%; max-width:720px; padding:12px; border-radius:6px; }
-        .small{ font-size:12px; color:#666; }
+        :root {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            color: #111827;
+            background: #f6f8fb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 12px;
+            width: 430px;
+            background: #f6f8fb;
+        }
+        h1, h2, h3, h4, p { margin: 0; }
+        .small { font-size: 12px; color: #6b7280; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+        .header h3 { font-size: 18px; font-weight: 700; }
+        .badge {
+            font-size: 11px;
+            color: #1e3a8a;
+            background: #dbeafe;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 2px 8px;
+        }
+        .panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .panel-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-items: start;
+        }
+        .profile-grid .full { grid-column: 1 / -1; }
+        .section-hidden { display: none; }
+        .mode-row {
+            margin: 10px 0 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .mode-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #374151;
+            font-weight: 500;
+        }
+        .mode-option input {
+            width: auto;
+            margin: 0;
+            box-shadow: none;
+        }
+        .field label {
+            display: inline-block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #374151;
+            font-weight: 500;
+        }
+        input, textarea {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            color: #111827;
+            background: #ffffff;
+        }
+        textarea { resize: vertical; min-height: 70px; }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        #cvFileStatus { margin-top: 6px; }
+        .hint {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+        .button-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #111827;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        button:hover { background: #f9fafb; }
+        .btn-primary {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .run-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #scrapeBtn {
+            flex-shrink: 0;
+            min-width: 145px;
+        }
+        #status {
+            font-size: 12px;
+            color: #4b5563;
+            min-height: 16px;
+        }
+        .preview-box {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .tabs {
+            display: inline-flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 3px;
+        }
+        .tab {
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #4b5563;
+            user-select: none;
+        }
+        .tab.active {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #d1d5db;
+        }
+        .preview-content {
+            max-height: 240px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fbfdff;
+        }
+        .preview-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(17, 24, 39, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .modal .dialog {
+            background: #ffffff;
+            width: 100%;
+            max-width: 720px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+        }
+        .modal textarea {
+            width: 100%;
+            min-height: 220px;
+            margin-top: 8px;
+        }
+        .modal-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 <body>
-    <h3>Job Scraper</h3>
-    <div>
-        <h4>Your Profile</h4>
-        <div class="profile-grid">
-            <div>
+    <div class="header">
+        <h3>Job Scraper</h3>
+        <span class="badge">Prototype</span>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">Your Profile</div>
+        <div class="panel-subtitle">Choose one profile source: upload a CV or enter details manually.</div>
+        <div class="mode-row">
+            <label class="mode-option" for="modeUpload">
+                <input id="modeUpload" type="radio" name="profileMode" value="upload" checked />
+                Upload CV (recommended)
+            </label>
+            <label class="mode-option" for="modeManual">
+                <input id="modeManual" type="radio" name="profileMode" value="manual" />
+                Enter details manually
+            </label>
+        </div>
+        <div id="uploadProfileFields" class="field">
+            <label for="cvPdf">Current CV (PDF)</label>
+            <input id="cvPdf" type="file" accept="application/pdf,.pdf" />
+            <div id="cvFileStatus" class="small">No CV uploaded yet.</div>
+            <div class="hint">The uploaded file is saved to backend assets for later text extraction.</div>
+        </div>
+        <div id="manualProfileFields" class="profile-grid section-hidden">
+            <div class="field">
                 <label for="name">Name</label>
                 <input id="name" type="text" placeholder="Full name" />
             </div>
-            <div>
+            <div class="field">
                 <label for="skills">Skills</label>
                 <input id="skills" type="text" placeholder="Python, React, SQL" />
             </div>
-            <div class="full">
+            <div class="field full">
                 <label for="experience">Experience summary</label>
                 <textarea id="experience" rows="3" placeholder="2 years at ..."></textarea>
             </div>
-            <div class="full">
+            <div class="field full">
                 <label for="projects">Key projects</label>
                 <input id="projects" type="text" placeholder="Project A, Project B" />
             </div>
         </div>
-        <div id="controls">
-            <button id="saveProfile">Save Profile</button>
+        <div id="controls" class="button-row">
+            <button id="saveProfile" class="btn-primary">Save Profile</button>
             <button id="clearProfile">Clear</button>
-            <span class="small">Saved to extension storage</span>
+            <span class="small">Profile data is saved in extension storage.</span>
         </div>
     </div>
-    <hr>
-    <div style="display:flex; gap:8px; align-items:center;">
-        <button id="scrapeBtn">Scrape Job Info</button>
-        <div id="status" class="small" style="margin-left:6px"></div>
+
+    <div class="panel">
+        <div class="panel-title">Generate Documents</div>
+        <div class="panel-subtitle">Open a job page, then scrape details to create a cover letter and CV draft.</div>
+        <div class="run-row">
+            <button id="scrapeBtn" class="btn-primary">Scrape Job Info</button>
+            <div id="status"></div>
+        </div>
     </div>
-    <div id="generation" style="margin-top:10px; display:none;">
-        <h4>Generated Output</h4>
+
+    <div id="generation" class="panel" style="display:none;">
+        <div class="panel-title">Generated Output</div>
+        <div class="panel-subtitle">Switch between cover letter and CV preview, then download or edit.</div>
         <div class="preview-box">
             <div class="tabs">
                 <div id="tabCover" class="tab active">Cover Letter</div>
@@ -65,7 +285,7 @@
             </div>
             <div id="previewCover" class="preview-content"></div>
             <div id="previewCV" class="preview-content" style="display:none;"></div>
-            <div style="margin-top:8px; display:flex; gap:8px;">
+            <div class="preview-actions">
                 <button id="downloadDocx">Download DOCX</button>
                 <button id="downloadPdf">Download PDF</button>
                 <button id="copyPreview">Copy Current</button>
@@ -78,9 +298,10 @@
     <div id="editModal" class="modal">
         <div class="dialog">
             <h4>Edit Preview</h4>
-            <textarea id="editText" rows="10" style="width:100%"></textarea>
-            <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
-                <button id="saveEdit">Save</button>
+            <p class="small">Use this editor to quickly adjust wording before downloading.</p>
+            <textarea id="editText" rows="10"></textarea>
+            <div class="modal-actions">
+                <button id="saveEdit" class="btn-primary">Save</button>
                 <button id="closeEdit">Close</button>
             </div>
         </div>
