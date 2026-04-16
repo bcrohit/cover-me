@@ -6,6 +6,17 @@ const API_GENERATE = 'http://127.0.0.1:8000/api/generate';
 const API_JOBDATA = 'http://127.0.0.1:8000/api/jobdata';
 const API_COVERLETTER = 'http://127.0.0.1:8000/api/coverletter';
 
+function normalizeProfileForPayload(profile) {
+    const mode = profile && profile.profileMode;
+    if (mode === 'upload') return {};
+    return {
+        name: (profile && profile.name) || '',
+        skills: (profile && profile.skills) || '',
+        experience: (profile && profile.experience) || '',
+        projects: (profile && profile.projects) || ''
+    };
+}
+
 function readProfile() {
     return new Promise((resolve) => {
         if (chrome.storage && chrome.storage.local) {
@@ -20,7 +31,8 @@ function readProfile() {
 
 async function sendGenerateWithProfile(jobData) {
     try {
-        const profile = await readProfile();
+        const savedProfile = await readProfile();
+        const profile = normalizeProfileForPayload(savedProfile);
         const payload = { jobData, profile };
 
         setStatus('Saving job data...');
