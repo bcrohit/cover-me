@@ -1,4 +1,5 @@
 import base64
+import binascii
 import io
 import json
 from pathlib import Path
@@ -7,17 +8,47 @@ from docx import Document
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from groq import Groq
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from utils import get_job_data, generate_cover_content
-
+from utils import get_job_data, parse_pdf
+from chat_utils import generate_cover_content, structure_parsed_cv
 app = Flask(__name__)
 CORS(app)
 CONTENTS_DIR = Path("assets/contents")
 
 load_dotenv()
+
+
+@app.route("/api/parse-cv-profile", methods=["POST"])
+def parse_cv_profile():
+    payload = request.get_json() or {}
+
+    try:
+        encoded_data = payload.get("data", "")
+        assert encoded_data, "PDF base64 data is required for /api/upload-cv"
+
+        decoded_bytes = base64.b64decode(encoded_data, validate=True)
+        assert decoded_bytes.startswith(b"%PDF"), "Uploaded file is not a valid PDF."
+
+        extracted_text = parse_pdf(decoded_bytes)
+        structured_cv = structure_parsed_cv(extracted_text)
+        with open(CONTENTS_DIR / "profile.json", "w", encoding="utf-8") as f:
+            json.dump(structured_cv, f, ensure_ascii=False, indent=2)
+
+        return jsonify(
+            {
+                "status": "success",
+                "message": "Profile saved successfully.",
+            }
+        )
+    except AssertionError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except binascii.Error:
+        return jsonify({"status": "error", "message": "Invalid base64 payload."}), 400
+    except Exception as e:
+        print("CV upload error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/jobdata", methods=["POST"])
@@ -40,8 +71,8 @@ def receive_job_data():
         # save job and profile separately for clarity
         with open(CONTENTS_DIR / "job_data.json", "w", encoding="utf-8") as f:
             json.dump(job, f, ensure_ascii=False, indent=2)
-        with open(CONTENTS_DIR / "profile.json", "w", encoding="utf-8") as f:
-            json.dump(profile, f, ensure_ascii=False, indent=2)
+        # with open(CONTENTS_DIR / "profile.json", "w", encoding="utf-8") as f:
+        #     json.dump(profile, f, ensure_ascii=False, indent=2)
         return jsonify({"status": "success", "message": "Data received"})
     except Exception as e:
         print("Error saving data:", e)
@@ -67,7 +98,7 @@ def generate_coverletter():
             if profile_path.exists():
                 profile = get_job_data("profile.json", CONTENTS_DIR)
 
-        llm_output, raw_text = generate_cover_content(job, profile)
+        llm_output = generate_cover_content(job, profile)
 
         CONTENTS_DIR.mkdir(parents=True, exist_ok=True)
         with open(CONTENTS_DIR / "output.json", "w", encoding="utf-8") as fp:
@@ -78,7 +109,6 @@ def generate_coverletter():
                 "status": "success",
                 "message": "Cover letter generated.",
                 "output": llm_output,
-                "raw": raw_text,
             }
         )
     except AssertionError as e:
