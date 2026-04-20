@@ -6,15 +6,21 @@ const API_GENERATE = 'http://127.0.0.1:8000/api/generate';
 const API_JOBDATA = 'http://127.0.0.1:8000/api/jobdata';
 const API_COVERLETTER = 'http://127.0.0.1:8000/api/coverletter';
 
-function normalizeProfileForPayload(profile) {
-    const mode = profile && profile.profileMode;
-    if (mode === 'upload') return {};
-    return {
+function buildPayload(jobData, profile) {
+    const profileMode = profile && profile.profileMode === 'manual' ? 'manual' : 'upload';
+    const payload = { jobData, profileMode };
+    const manualProfile = {
         name: (profile && profile.name) || '',
         skills: (profile && profile.skills) || '',
         experience: (profile && profile.experience) || '',
         projects: (profile && profile.projects) || ''
     };
+
+    if (profileMode === 'manual') {
+        payload.profile = manualProfile;
+    }
+
+    return { payload, previewProfile: manualProfile };
 }
 
 function readProfile() {
@@ -32,8 +38,7 @@ function readProfile() {
 async function sendGenerateWithProfile(jobData) {
     try {
         const savedProfile = await readProfile();
-        const profile = normalizeProfileForPayload(savedProfile);
-        const payload = { jobData, profile };
+        const { payload, previewProfile } = buildPayload(jobData, savedProfile);
 
         setStatus('Saving job data...');
         const jobDataResponse = await fetch(API_JOBDATA, {
@@ -79,7 +84,7 @@ async function sendGenerateWithProfile(jobData) {
             console.assert(cover && cv && generation, 'generation: preview UI missing');
             if (cover && cv) {
                 renderCoverPreview(cover, data.preview);
-                renderCvPreview(cv, profile);
+                renderCvPreview(cv, previewProfile);
             }
             if (generation) generation.style.display = 'block';
             setStatus('Saved and generated successfully.');
