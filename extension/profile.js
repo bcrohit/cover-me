@@ -1,6 +1,6 @@
 import { setStatus } from './status.js';
 
-const API_PARSE_CV_PROFILE = 'http://127.0.0.1:8000/api/parse-cv-profile';
+const API_JOBDATA = 'http://127.0.0.1:8000/api/jobdata';
 const MODE_UPLOAD = 'upload';
 const MODE_MANUAL = 'manual';
 
@@ -58,10 +58,14 @@ async function uploadCvPdf(file) {
     if (!isPdf) throw new Error('Please select a PDF file.');
 
     const data = await readFileAsBase64(file);
-    const response = await fetch(API_PARSE_CV_PROFILE, {
+    const response = await fetch(API_JOBDATA, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, data })
+        body: JSON.stringify({
+            filename: file.name,
+            data,
+            profileMode: MODE_UPLOAD
+        })
     });
     if (!response.ok) {
         throw new Error(`CV upload failed (${response.status})`);
