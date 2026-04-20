@@ -33,7 +33,7 @@ def generate_cover_content(job: dict, profile: dict):
         "jobData.description is required for /api/coverletter"
     )
 
-    system_message = {"role": "system", "content": get_prompt("system.md", PROMPTS_DIR)}
+    system_message = {"role": "system", "content": get_prompt("system_cl.md", PROMPTS_DIR)}
     user_content = get_prompt("user.md", PROMPTS_DIR).format(
         JSON_DATA=json.dumps(input_data, indent=4)
     )

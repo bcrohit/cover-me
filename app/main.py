@@ -20,26 +20,71 @@ CONTENTS_DIR = Path("assets/contents")
 load_dotenv()
 
 
-@app.route("/api/parse-cv-profile", methods=["POST"])
-def parse_cv_profile():
-    payload = request.get_json() or {}
+def save_json(filename: str, payload: dict):
+    CONTENTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(CONTENTS_DIR / filename, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
+
+def has_profile_content(profile: dict) -> bool:
+    return any(bool(value) for value in profile.values())
+
+
+@app.route("/api/jobdata", methods=["POST"])
+def receive_job_data():
+    data = request.get_json() or {}
+    print("Received profile/job data")
+    # Unified endpoint: accepts manual profile, uploaded CV PDF, and/or job data.
     try:
-        encoded_data = payload.get("data", "")
-        assert encoded_data, "PDF base64 data is required for /api/upload-cv"
+        assert isinstance(data, dict), "Request payload must be a JSON object."
+        profile_mode = data.get("profileMode")
+        profile = data.get("profile")
+        encoded_data = data.get("data", "")
+        filename = data.get("filename", "")
+        parsed_cv_profile_saved = False
+        job_saved = False
+        profile_saved = False
 
-        decoded_bytes = base64.b64decode(encoded_data, validate=True)
-        assert decoded_bytes.startswith(b"%PDF"), "Uploaded file is not a valid PDF."
+        if encoded_data:
+            decoded_bytes = base64.b64decode(encoded_data, validate=True)
+            assert decoded_bytes.startswith(b"%PDF"), "Uploaded file is not a valid PDF."
 
-        extracted_text = parse_pdf(decoded_bytes)
-        structured_cv = structure_parsed_cv(extracted_text)
-        with open(CONTENTS_DIR / "profile.json", "w", encoding="utf-8") as f:
-            json.dump(structured_cv, f, ensure_ascii=False, indent=2)
+            extracted_text = parse_pdf(decoded_bytes)
+            structured_cv = structure_parsed_cv(extracted_text)
+            assert has_profile_content(structured_cv), "Parsed CV profile is empty."
+            save_json("profile.json", structured_cv)
+            parsed_cv_profile_saved = True
+
+        if "jobData" in data:
+            save_json("job_data.json", data.get("jobData"))
+            job_saved = True
+        elif "profileMode" not in data and "data" not in data and "profile" not in data:
+            # Legacy payload: treat entire dict as raw job data.
+            save_json("job_data.json", data)
+            job_saved = True
+
+        if profile_mode == "manual":
+            assert isinstance(profile, dict), "profile must be a dictionary in manual mode."
+            save_json("profile.json", profile)
+            profile_saved = True
+        elif profile_mode == "upload":
+            pass
+        elif isinstance(profile, dict) and has_profile_content(profile):
+            # Legacy payloads without profileMode can still update profile when non-empty.
+            save_json("profile.json", profile)
+            profile_saved = True
+
+        assert (
+            parsed_cv_profile_saved or job_saved or profile_saved
+        ), "No profile or job data provided."
 
         return jsonify(
             {
                 "status": "success",
-                "message": "Profile saved successfully.",
+                "message": "Data received",
+                "profile_saved": parsed_cv_profile_saved or profile_saved,
+                "job_saved": job_saved,
+                "filename": filename,
             }
         )
     except AssertionError as e:
@@ -47,41 +92,13 @@ def parse_cv_profile():
     except binascii.Error:
         return jsonify({"status": "error", "message": "Invalid base64 payload."}), 400
     except Exception as e:
-        print("CV upload error:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/jobdata", methods=["POST"])
-def receive_job_data():
-    data = request.get_json()
-    print("Received Job Data")
-    # Accept either raw jobData or { jobData, profile }
-    try:
-        if isinstance(data, dict) and "jobData" in data:
-            job = data.get("jobData")
-            profile = data.get("profile", {})
-        else:
-            # legacy: assume whole payload is job data
-            job = data
-            profile = {}
-
-        # Ensure output folder exists before writing.
-        CONTENTS_DIR.mkdir(parents=True, exist_ok=True)
-
-        # save job and profile separately for clarity
-        with open(CONTENTS_DIR / "job_data.json", "w", encoding="utf-8") as f:
-            json.dump(job, f, ensure_ascii=False, indent=2)
-        # with open(CONTENTS_DIR / "profile.json", "w", encoding="utf-8") as f:
-        #     json.dump(profile, f, ensure_ascii=False, indent=2)
-        return jsonify({"status": "success", "message": "Data received"})
-    except Exception as e:
         print("Error saving data:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route("/api/coverletter", methods=["POST"])
 def generate_coverletter():
-    """Generate custom cover letter/CV JSON from jobData (+ optional profile) using LLM."""
+    """Generate custom cover letter from jobData (+ optional profile) using LLM."""
     payload = request.get_json() or {}
 
     try:
@@ -130,10 +147,14 @@ def generate_documents():
     """Generates a preview, DOCX and PDF from jobData and profile and returns files as base64."""
     payload = request.get_json() or {}
     # Accept either { jobData, profile } or read saved files
-    job = payload.get("jobData") or {}
     profile = payload.get("profile") or {}
 
     try:
+        if not profile:
+            profile_path = CONTENTS_DIR / "profile.json"
+            if profile_path.exists():
+                profile = get_job_data("profile.json", CONTENTS_DIR)
+
         # Build a simple preview text (cover letter + CV summary)
         name = profile.get("name", "")
         skills = profile.get("skills", "")
@@ -195,8 +216,8 @@ def generate_documents():
         textobj.setFont("Helvetica", 11)
         if experience:
             textobj.textLine("Experience:")
-            for l in experience.split("\n"):
-                textobj.textLine("- " + l)
+            for experience_line in experience.split("\n"):
+                textobj.textLine("- " + experience_line)
             textobj.textLine("")
         if projects:
             textobj.textLine("Projects:")
