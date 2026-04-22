@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 api_key = os.environ.get("GROQ_API_KEY")
-assert api_key, "GROQ_API_KEY is required for /api/coverletter"
+assert api_key, "GROQ_API_KEY is required for cover-letter generation."
 
 groq = Groq(api_key=api_key)
 
@@ -30,12 +30,33 @@ def generate_cover_content(job: dict, profile: dict):
         "candidate_details": profile or {},
     }
     assert input_data["job_description"], (
-        "jobData.description is required for /api/coverletter"
+        "jobData.description is required for cover-letter generation."
     )
 
     system_message = {"role": "system", "content": get_prompt("system_cl.md", PROMPTS_DIR)}
     user_content = get_prompt("user.md", PROMPTS_DIR).format(
-        JSON_DATA=json.dumps(input_data, indent=4)
+        USER_PROFILE=json.dumps(input_data, indent=4)
+    )
+    user_message = {"role": "user", "content": user_content}
+
+    response_text = call_llm(system_message, user_message)
+    json_block = extract_json_block(response_text).strip()
+    parsed = json.loads(json_block)
+    return parsed
+
+def generate_cv_content(job: dict, profile: dict):
+    """Prepare the input data and call the LLM to generate the cover content."""
+    input_data = {
+        "job_description": job.get("description", ""),
+        "candidate_details": profile or {},
+    }
+    assert input_data["job_description"], (
+        "jobData.description is required for cover-letter generation."
+    )
+
+    system_message = {"role": "system", "content": get_prompt("system_cv.md", PROMPTS_DIR)}
+    user_content = get_prompt("user.md", PROMPTS_DIR).format(
+        USER_PROFILE=json.dumps(input_data, indent=4)
     )
     user_message = {"role": "user", "content": user_content}
 
@@ -54,7 +75,7 @@ def structure_parsed_cv(cv_content: str):
     )
     system_message = {"role": "system", "content": get_prompt("system_profile.md", PROMPTS_DIR)}
     user_content = get_prompt("user_profile.md", PROMPTS_DIR).format(
-        CV_PARSED=json.dumps(input_data, indent=4)
+        USER_PROFILE=json.dumps(input_data, indent=4)
     )
     user_message = {"role": "user", "content": user_content}
     response_text = call_llm(system_message, user_message)
