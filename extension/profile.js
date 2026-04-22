@@ -1,6 +1,5 @@
 import { setStatus } from './status.js';
 
-const API_JOBDATA = 'http://127.0.0.1:8000/api/jobdata';
 const MODE_UPLOAD = 'upload';
 const MODE_MANUAL = 'manual';
 
@@ -52,31 +51,6 @@ function applyProfileMode(mode) {
     manualFields.classList.toggle('section-hidden', activeMode !== MODE_MANUAL);
 }
 
-async function uploadCvPdf(file) {
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    console.assert(isPdf, 'profile: uploaded CV must be a PDF');
-    if (!isPdf) throw new Error('Please select a PDF file.');
-
-    const data = await readFileAsBase64(file);
-    const response = await fetch(API_JOBDATA, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            filename: file.name,
-            data,
-            profileMode: MODE_UPLOAD
-        })
-    });
-    if (!response.ok) {
-        throw new Error(`CV upload failed (${response.status})`);
-    }
-    const payload = await response.json();
-    if (payload.status && payload.status !== 'success') {
-        throw new Error(payload.message || 'CV upload failed.');
-    }
-    return payload;
-}
-
 export function loadProfile() {
     if (!(chrome.storage && chrome.storage.local)) return;
     chrome.storage.local.get(['profile'], (res) => {
@@ -119,11 +93,14 @@ export async function saveProfile() {
 
     try {
         if (profileMode === MODE_UPLOAD && cvFile) {
-            setStatus('Uploading CV PDF...');
-            const uploadResult = await uploadCvPdf(cvFile);
+            const isPdf = cvFile.type === 'application/pdf' || cvFile.name.toLowerCase().endsWith('.pdf');
+            console.assert(isPdf, 'profile: uploaded CV must be a PDF');
+            if (!isPdf) throw new Error('Please select a PDF file.');
+            setStatus('Reading CV PDF...');
+            const base64Data = await readFileAsBase64(cvFile);
             cvAsset = {
-                filename: uploadResult.filename || cvFile.name,
-                assetPath: uploadResult.asset_path || '',
+                filename: cvFile.name,
+                base64Data,
                 uploadedAt: new Date().toISOString()
             };
             if (cvStatusEl) cvStatusEl.textContent = `Uploaded: ${cvAsset.filename}`;
@@ -147,9 +124,10 @@ export async function saveProfile() {
     };
     if (chrome.storage && chrome.storage.local) {
         setStatus('Saving profile...');
-        chrome.storage.local.set({ profile: p }, () => {
-            setStatus('Profile saved.');
+        await new Promise((resolve) => {
+            chrome.storage.local.set({ profile: p }, resolve);
         });
+        setStatus('Profile saved.');
     }
 }
 
@@ -167,7 +145,7 @@ function initProfileModeSelector() {
 export function initProfileUI() {
     const saveBtn = document.getElementById('saveProfile');
     const clearBtn = document.getElementById('clearProfile');
-    console.assert(saveBtn && clearBtn, 'profile: buttons missing');
+    console.assert(clearBtn, 'profile: clear button missing');
     if (saveBtn) saveBtn.addEventListener('click', saveProfile);
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {

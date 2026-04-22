@@ -239,7 +239,7 @@
             <label for="cvPdf">Current CV (PDF)</label>
             <input id="cvPdf" type="file" accept="application/pdf,.pdf" />
             <div id="cvFileStatus" class="small">No CV uploaded yet.</div>
-            <div class="hint">The uploaded file is saved to backend assets for later text extraction.</div>
+            <div class="hint">CV and profile inputs are saved locally when you run generation.</div>
         </div>
         <div id="manualProfileFields" class="profile-grid section-hidden">
             <div class="field">
@@ -260,17 +260,16 @@
             </div>
         </div>
         <div id="controls" class="button-row">
-            <button id="saveProfile" class="btn-primary">Save Profile</button>
             <button id="clearProfile">Clear</button>
-            <span class="small">Profile data is saved in extension storage.</span>
+            <span class="small">Use the generate button below to save and run in one click.</span>
         </div>
     </div>
 
     <div class="panel">
         <div class="panel-title">Generate Documents</div>
-        <div class="panel-subtitle">Open a job page, then scrape details to create a cover letter and CV draft.</div>
+        <div class="panel-subtitle">Open a job page, then save profile + scrape details in one step.</div>
         <div class="run-row">
-            <button id="scrapeBtn" class="btn-primary">Scrape Job Info</button>
+            <button id="scrapeBtn" class="btn-primary">Save & Generate Cover Letter</button>
             <div id="status"></div>
         </div>
     </div>
