@@ -1,7 +1,7 @@
 Input JSON object:
 
 ```json
-{CV_PARSED}
+{USER_PROFILE}
 ```
 
 Customized JSON object:

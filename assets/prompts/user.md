@@ -1,7 +1,7 @@
 Input JSON object:
 
 ```json
-{JSON_DATA}
+{USER_PROFILE}
 ```
 
 Customized JSON object:

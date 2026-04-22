@@ -24,7 +24,7 @@ You will receive a JSON object:
 ```
 
 Notes:
-- `candidate_details` fields may be missing, null, or empty.
+- One or more fields of `candidate_details` may be missing, null, or empty.
 - Use candidate details only when provided.
 
 # Writing Requirements
