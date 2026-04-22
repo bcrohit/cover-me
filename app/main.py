@@ -1,7 +1,6 @@
 import base64
 import binascii
 import io
-import json
 from pathlib import Path
 
 from docx import Document
@@ -11,19 +10,13 @@ from flask_cors import CORS
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from utils import get_job_data, parse_pdf
-from chat_utils import generate_cover_content, structure_parsed_cv
+from utils import get_job_data, parse_pdf, save_json
+from chat_utils import generate_cover_content, structure_parsed_cv, generate_cv_content
 app = Flask(__name__)
 CORS(app)
 CONTENTS_DIR = Path("assets/contents")
 
 load_dotenv()
-
-
-def save_json(filename: str, payload: dict):
-    CONTENTS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CONTENTS_DIR / filename, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 def has_profile_content(profile: dict) -> bool:
@@ -34,111 +27,44 @@ def has_profile_content(profile: dict) -> bool:
 def receive_job_data():
     data = request.get_json() or {}
     print("Received profile/job data")
-    # Unified endpoint: accepts manual profile, uploaded CV PDF, and/or job data.
     try:
         assert isinstance(data, dict), "Request payload must be a JSON object."
+
         profile_mode = data.get("profileMode")
-        profile = data.get("profile")
-        encoded_data = data.get("data", "")
-        filename = data.get("filename", "")
-        parsed_cv_profile_saved = False
-        job_saved = False
-        profile_saved = False
-
-        if encoded_data:
-            decoded_bytes = base64.b64decode(encoded_data, validate=True)
-            assert decoded_bytes.startswith(b"%PDF"), "Uploaded file is not a valid PDF."
-
-            extracted_text = parse_pdf(decoded_bytes)
-            structured_cv = structure_parsed_cv(extracted_text)
-            assert has_profile_content(structured_cv), "Parsed CV profile is empty."
-            save_json("profile.json", structured_cv)
-            parsed_cv_profile_saved = True
-
-        if "jobData" in data:
-            save_json("job_data.json", data.get("jobData"))
-            job_saved = True
-        elif "profileMode" not in data and "data" not in data and "profile" not in data:
-            # Legacy payload: treat entire dict as raw job data.
-            save_json("job_data.json", data)
-            job_saved = True
+        job_data = data.get("jobData")
+        assert job_data is not None, "No job data retrieved."
+        save_json("job_data.json", job_data, CONTENTS_DIR)
 
         if profile_mode == "manual":
-            assert isinstance(profile, dict), "profile must be a dictionary in manual mode."
-            save_json("profile.json", profile)
-            profile_saved = True
-        elif profile_mode == "upload":
-            pass
-        elif isinstance(profile, dict) and has_profile_content(profile):
-            # Legacy payloads without profileMode can still update profile when non-empty.
-            save_json("profile.json", profile)
-            profile_saved = True
+            profile = data.get("profile")
+            save_json("profile.json", profile, CONTENTS_DIR)
+        else:
+            encoded_data = data.get("data", "")
+            decoded_bytes = base64.b64decode(encoded_data, validate=True)
+            assert decoded_bytes.startswith(b"%PDF"), "Uploaded file is not a valid PDF."
+            profile = parse_pdf(decoded_bytes)
+            profile = structure_parsed_cv(profile)
+            save_json("profile.json", profile, CONTENTS_DIR)
 
-        assert (
-            parsed_cv_profile_saved or job_saved or profile_saved
-        ), "No profile or job data provided."
-
+        cover_letter = generate_cover_content(job_data, profile)
+        cv_content = generate_cv_content(job_data, profile)
+        save_json("cover_letter.json", cover_letter, CONTENTS_DIR)
+        save_json("cv.json", cv_content, CONTENTS_DIR)
         return jsonify(
             {
                 "status": "success",
-                "message": "Data received",
-                "profile_saved": parsed_cv_profile_saved or profile_saved,
-                "job_saved": job_saved,
-                "filename": filename,
+                "message": "Cover letter generated.",
+                "cover_letter": cover_letter,
+                "cv_content": cv_content,
             }
         )
     except AssertionError as e:
+        print("Assertion error:", e)
         return jsonify({"status": "error", "message": str(e)}), 400
     except binascii.Error:
         return jsonify({"status": "error", "message": "Invalid base64 payload."}), 400
     except Exception as e:
         print("Error saving data:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/coverletter", methods=["POST"])
-def generate_coverletter():
-    """Generate custom cover letter from jobData (+ optional profile) using LLM."""
-    payload = request.get_json() or {}
-
-    try:
-        if isinstance(payload, dict) and "jobData" in payload:
-            job = payload.get("jobData") or {}
-            profile = payload.get("profile") or {}
-        else:
-            job = payload if isinstance(payload, dict) else {}
-            profile = {}
-
-        # Fallback to saved profile when omitted.
-        if not profile:
-            profile_path = CONTENTS_DIR / "profile.json"
-            if profile_path.exists():
-                profile = get_job_data("profile.json", CONTENTS_DIR)
-
-        llm_output = generate_cover_content(job, profile)
-
-        CONTENTS_DIR.mkdir(parents=True, exist_ok=True)
-        with open(CONTENTS_DIR / "output.json", "w", encoding="utf-8") as fp:
-            json.dump(llm_output, fp, ensure_ascii=False, indent=2)
-
-        return jsonify(
-            {
-                "status": "success",
-                "message": "Cover letter generated.",
-                "output": llm_output,
-            }
-        )
-    except AssertionError as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-    except json.JSONDecodeError as e:
-        return jsonify(
-            {
-                "status": "error",
-                "message": f"LLM output is not valid JSON: {e}",
-            }
-        ), 500
-    except Exception as e:
-        print("Cover letter generation error:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -148,6 +74,8 @@ def generate_documents():
     payload = request.get_json() or {}
     # Accept either { jobData, profile } or read saved files
     profile = payload.get("profile") or {}
+    if payload.get("profileMode") == "upload":
+        profile = {}
 
     try:
         if not profile:
@@ -161,11 +89,9 @@ def generate_documents():
         experience = profile.get("experience", "")
         projects = profile.get("projects", "")
 
-        cover_lines = (
-            get_job_data("output.json", CONTENTS_DIR)
-            .get("cover_letter", "")
-            .split("\n")
-        )
+        cover_letter_text = get_job_data("cover_letter.json", CONTENTS_DIR).get("cover_letter", "")
+        assert cover_letter_text, "cover_letter.json must include a non-empty cover_letter."
+        cover_lines = cover_letter_text.split("\n")
         preview = "\n".join(cover_lines)
 
         # Create DOCX
