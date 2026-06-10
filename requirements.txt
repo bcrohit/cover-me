@@ -3,3 +3,6 @@ flask-cors
 python-docx
 reportlab
 PyPDF2
+groq
+python-dotenv
+pydantic

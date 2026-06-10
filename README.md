@@ -11,7 +11,16 @@ Run the Flask app (requires Python + flask + flask-cors): it will save the recei
 
 ### Generation endpoint
 
-The server exposes `/api/generate` (POST) which accepts `{ jobData, profile }` and returns a JSON payload with a `preview` string and `files` array where each file is `{ filename, content_type, data }` and `data` is base64. The popup will show the preview and offer DOCX/PDF downloads.
+The server flow is now split in two steps:
+
+1. `POST /api/jobdata`  
+   Saves scraped job data + profile input, generates both cover letter and CV drafts, and returns JSON preview payloads.
+
+2. `POST /api/generate`  
+   Accepts the reviewed/edited text from UI plus:
+   - `outputFormat`: `pdf` or `word`
+   - `documentType`: `cover_letter` or `cv`  
+     and returns a downloadable file response (`application/pdf` or DOCX mime type).
 
 Install server deps:
 
