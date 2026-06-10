@@ -1,23 +1,90 @@
-import { getGeneratedFiles } from './generated-files.js';
+import { getGenerationContext, updateGeneratedCoverBody, updateGeneratedCvText } from './generated-files.js';
+import { setStatus } from './status.js';
 
-export function downloadBase64File(file) {
-    const byteChars = atob(file.data);
-    const byteNumbers = new Array(byteChars.length);
-    for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: file.content_type });
+const API_GENERATE = 'http://127.0.0.1:8000/api/generate';
+
+function triggerBlobDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     if (chrome && chrome.downloads && chrome.downloads.download) {
-        chrome.downloads.download({ url, filename: file.filename }, () => {
+        chrome.downloads.download({ url, filename }, () => {
             URL.revokeObjectURL(url);
         });
     } else {
         const a = document.createElement('a');
         a.href = url;
-        a.download = file.filename;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
     }
+}
+
+function activeDocumentType() {
+    const cover = document.getElementById('previewCover');
+    const cv = document.getElementById('previewCV');
+    console.assert(cover && cv, 'downloads: preview elements missing');
+    if (!(cover && cv)) return 'cover_letter';
+    return cover.style.display !== 'none' ? 'cover_letter' : 'cv';
+}
+
+function getActivePreviewText(documentType) {
+    const id = documentType === 'cover_letter' ? 'previewCover' : 'previewCV';
+    const el = document.getElementById(id);
+    return el ? (el.innerText || '').trim() : '';
+}
+
+function parseFilename(contentDisposition, fallback) {
+    const disposition = String(contentDisposition || '');
+    const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i);
+    if (!match) return fallback;
+    try {
+        return decodeURIComponent(match[1].replace(/"/g, '').trim());
+    } catch {
+        return match[1].replace(/"/g, '').trim();
+    }
+}
+
+async function requestAndDownload(outputFormat) {
+    const documentType = activeDocumentType();
+    const currentText = getActivePreviewText(documentType);
+    if (documentType === 'cover_letter') {
+        updateGeneratedCoverBody(currentText);
+    } else {
+        updateGeneratedCvText(currentText);
+    }
+    const context = getGenerationContext();
+    const payload = {
+        outputFormat,
+        documentType,
+        jobData: context.jobData,
+        profile: context.profile,
+        coverLetter: context.coverLetter,
+        cv: context.cv
+    };
+
+    setStatus(`Generating ${outputFormat.toUpperCase()}...`);
+    const response = await fetch(API_GENERATE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+        let errorText = `Generation request failed (${response.status})`;
+        try {
+            const payloadError = await response.json();
+            if (payloadError && payloadError.error) errorText = payloadError.error;
+        } catch {
+            // ignore non-JSON errors
+        }
+        throw new Error(errorText);
+    }
+
+    const blob = await response.blob();
+    const defaultName = documentType === 'cover_letter'
+        ? `cover_letter.${outputFormat === 'pdf' ? 'pdf' : 'docx'}`
+        : `cv.${outputFormat === 'pdf' ? 'pdf' : 'docx'}`;
+    const filename = parseFilename(response.headers.get('content-disposition'), defaultName);
+    triggerBlobDownload(blob, filename);
+    setStatus(`Downloaded ${filename}`);
 }
 
 export function initDownloadListeners() {
@@ -25,17 +92,23 @@ export function initDownloadListeners() {
     const pdfBtn = document.getElementById('downloadPdf');
     console.assert(docxBtn && pdfBtn, 'downloads: buttons missing');
     if (docxBtn) {
-        docxBtn.addEventListener('click', () => {
-            const files = getGeneratedFiles();
-            const f = files.find((x) => x.content_type && x.content_type.includes('word')) || files[0];
-            if (f) downloadBase64File(f);
+        docxBtn.addEventListener('click', async () => {
+            try {
+                await requestAndDownload('word');
+            } catch (err) {
+                console.error('downloads: DOCX generation failed', err);
+                setStatus((err && err.message) || 'DOCX generation failed.');
+            }
         });
     }
     if (pdfBtn) {
-        pdfBtn.addEventListener('click', () => {
-            const files = getGeneratedFiles();
-            const f = files.find((x) => x.content_type && x.content_type.includes('pdf')) || files[1] || files[0];
-            if (f) downloadBase64File(f);
+        pdfBtn.addEventListener('click', async () => {
+            try {
+                await requestAndDownload('pdf');
+            } catch (err) {
+                console.error('downloads: PDF generation failed', err);
+                setStatus((err && err.message) || 'PDF generation failed.');
+            }
         });
     }
 }

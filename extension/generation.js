@@ -1,10 +1,11 @@
 import { setStatus } from './status.js';
 import { renderCoverPreview, renderCvPreview } from './preview-render.js';
-import { setGeneratedFiles } from './generated-files.js';
+import { setGenerationContext } from './generated-files.js';
 import { saveProfile } from './profile.js';
 
-const API_GENERATE = 'http://127.0.0.1:8000/api/generate';
-const API_JOBDATA = 'http://127.0.0.1:8000/api/jobdata';
+const API_BASE = 'http://127.0.0.1:8000';
+const API_ANALYZE = `${API_BASE}/api/analyze`;
+const API_GENERATE_DOCS = `${API_BASE}/api/generate-documents`;
 
 function buildPayload(jobData, profile) {
     const profileMode = profile && profile.profileMode === 'manual' ? 'manual' : 'upload';
@@ -41,11 +42,24 @@ function readProfile() {
     });
 }
 
+async function postJson(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error((data && data.message) || `Request failed (${response.status})`);
+    }
+    return data;
+}
+
 async function sendGenerateWithProfile(jobData) {
     try {
         const savedProfile = await readProfile();
         const { payload, previewProfile } = buildPayload(jobData, savedProfile);
-        const jobDataPayload = payload.profileMode === 'upload'
+        const analyzePayload = payload.profileMode === 'upload'
             ? {
                 ...payload,
                 filename: payload.profile.filename || '',
@@ -53,46 +67,52 @@ async function sendGenerateWithProfile(jobData) {
             }
             : payload;
 
-        setStatus('Saving job data...');
-        const jobDataResponse = await fetch(API_JOBDATA, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(jobDataPayload)
-        });
-        if (!jobDataResponse.ok) {
-            throw new Error(`Failed to save job data (${jobDataResponse.status})`);
-        }
+        setStatus('Analyzing job and profile...');
+        const analyzeData = await postJson(API_ANALYZE, analyzePayload);
+        const analysisBundle = analyzeData.analysis_bundle;
+        const profileFromApi = analyzeData.profile || previewProfile;
 
-        setStatus('Generating preview/documents...');
-        const generationResponse = await fetch(API_GENERATE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        setStatus('Generating tailored documents...');
+        const docsData = await postJson(API_GENERATE_DOCS, {
+            analysis_bundle: analysisBundle,
+            profile: profileFromApi,
+            jobData: analyzeData.jobData || jobData
         });
-        if (!generationResponse.ok) {
-            throw new Error(`Generation request failed (${generationResponse.status})`);
-        }
 
-        const data = await generationResponse.json();
-        console.log('Generation Response:', data);
-        if (data.preview) {
-            const cover = document.getElementById('previewCover');
-            const cv = document.getElementById('previewCV');
-            const generation = document.getElementById('generation');
-            console.assert(cover && cv && generation, 'generation: preview UI missing');
-            if (cover && cv) {
-                renderCoverPreview(cover, data.preview);
-                renderCvPreview(cv, previewProfile);
-            }
-            if (generation) generation.style.display = 'block';
-            setStatus('Saved and generated successfully.');
-            setGeneratedFiles(data.files || []);
-        } else {
-            setStatus('Saved, but no preview returned.');
+        const coverPayload = (docsData.preview && docsData.preview.coverLetter) || docsData.cover_letter || {};
+        const cvPayload = (docsData.preview && docsData.preview.cv) || {
+            cv_text: (docsData.tailored_cv && docsData.tailored_cv.cv_text) || '',
+            candidate_details: (docsData.tailored_cv && docsData.tailored_cv.candidate_details) || {}
+        };
+        const coverText = (coverPayload && coverPayload.body) || '';
+        const cvText = (cvPayload && cvPayload.cv_text) || '';
+
+        const cover = document.getElementById('previewCover');
+        const cv = document.getElementById('previewCV');
+        const generation = document.getElementById('generation');
+        console.assert(cover && cv && generation, 'generation: preview UI missing');
+        if (cover && cv) {
+            renderCoverPreview(cover, coverText);
+            renderCvPreview(cv, cvText);
         }
+        if (generation) generation.style.display = 'block';
+
+        const narrative = analysisBundle
+            && analysisBundle.match_analysis
+            && analysisBundle.match_analysis.narrative_summary;
+        setGenerationContext({
+            jobData: docsData.jobData || jobData,
+            profile: docsData.profile || profileFromApi,
+            coverLetter: coverPayload,
+            cv: cvPayload,
+            analysisBundle
+        });
+        setStatus(narrative
+            ? `Drafts ready. ${narrative}`
+            : 'Drafts ready. Review and download when ready.');
     } catch (err) {
         console.error('Error during save/generate flow:', err);
-        setStatus('Error saving or generating.');
+        setStatus((err && err.message) || 'Error saving or generating.');
     }
 }
 

@@ -1,4 +1,13 @@
 import { setStatus } from './status.js';
+import { updateGeneratedCoverBody, updateGeneratedCvText } from './generated-files.js';
+
+function getActivePreviewElement() {
+    const cover = document.getElementById('previewCover');
+    const cv = document.getElementById('previewCV');
+    console.assert(cover && cv, 'preview-ui: preview elements missing');
+    if (!(cover && cv)) return null;
+    return cover.style.display !== 'none' ? cover : cv;
+}
 
 export function initPreviewTabs() {
     const tabCover = document.getElementById('tabCover');
@@ -27,10 +36,7 @@ export function initCopyPreview() {
     console.assert(btn, 'preview-ui: copyPreview missing');
     if (btn) {
         btn.addEventListener('click', async () => {
-            const cover = document.getElementById('previewCover');
-            const cv = document.getElementById('previewCV');
-            console.assert(cover && cv, 'preview-ui: preview elements missing');
-            const active = cover && cv && cover.style.display !== 'none' ? cover : cv;
+            const active = getActivePreviewElement();
             const text = (active && active.innerText) || '';
             try {
                 await navigator.clipboard.writeText(text);
@@ -52,10 +58,7 @@ export function initEditModal() {
 
     if (editBtn && modal && editText) {
         editBtn.addEventListener('click', () => {
-            const cover = document.getElementById('previewCover');
-            const cv = document.getElementById('previewCV');
-            console.assert(cover && cv, 'preview-ui: preview elements missing');
-            const active = cover && cv && cover.style.display !== 'none' ? cover : cv;
+            const active = getActivePreviewElement();
             editText.value = (active && active.innerText) || '';
             modal.style.display = 'flex';
         });
@@ -69,16 +72,21 @@ export function initEditModal() {
         saveBtn.addEventListener('click', () => {
             const text = editText.value || '';
             const cover = document.getElementById('previewCover');
-            const cv = document.getElementById('previewCV');
-            console.assert(cover && cv, 'preview-ui: preview elements missing');
-            const active = cover && cv && cover.style.display !== 'none' ? cover : cv;
+            const active = getActivePreviewElement();
             if (active) {
                 active.innerHTML = '';
                 text.split('\n\n').forEach((p) => {
                     const pnode = document.createElement('p');
                     pnode.textContent = p.trim();
-                    active.appendChild(pnode);
+                    if (pnode.textContent) {
+                        active.appendChild(pnode);
+                    }
                 });
+            }
+            if (active && cover && active.id === cover.id) {
+                updateGeneratedCoverBody(text.trim());
+            } else {
+                updateGeneratedCvText(text.trim());
             }
             modal.style.display = 'none';
             setStatus('Edited.');
