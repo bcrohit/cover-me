@@ -25,9 +25,15 @@ def call_llm(system_message: str, user_message: str):
 
 def generate_cover_content(job: dict, profile: dict):
     """Prepare the input data and call the LLM to generate the cover content."""
+
+    profile_data = {
+        "skills": profile.get("skills", ""),
+        "experience": profile.get("experience", ""),
+        "projects": profile.get("projects", ""),
+    }
     input_data = {
         "job_description": job.get("description", ""),
-        "candidate_details": profile or {},
+        "candidate_details": profile_data,
     }
     assert input_data["job_description"], (
         "jobData.description is required for cover-letter generation."
