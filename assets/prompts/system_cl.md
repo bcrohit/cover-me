@@ -15,7 +15,6 @@ You will receive a JSON object:
 {
   "job_description": "...",
   "candidate_details": {
-    "name": "",
     "skills": "",
     "experience": "",
     "projects": ""
@@ -34,10 +33,12 @@ Notes:
 - Structure:
   1. Opening: target role + motivation
   2. Body: strongest relevant qualifications and impact
-  3. Closing: interest + call to action
+  3. Closing paragraph: interest + call to action (no complimentary close/sign-off)
 - Include role-relevant keywords from `job_description` naturally.
 - Emphasize achievements only if supported by provided data.
 - Avoid generic filler language.
+- Do not include salutation/greeting (for example, "Dear ...").
+- Do not include complimentary closing/sign-off (for example, "Sincerely" or "Best regards").
 
 # Safety and Accuracy Rules
 
@@ -54,10 +55,12 @@ Use this exact schema:
 
 ```json
 {
-  "cover_letter": ""
+  "subject": "",
+  "body": ""
 }
 ```
 
 Output constraints:
-- Always include `cover_letter`.
-- If generation is not possible, set `cover_letter` to an empty string.
+- Always include `subject` and `body`.
+- `body` must contain only the letter content paragraphs (no salutation and no closing compliment).
+- If generation is not possible, set both `subject` and `body` to empty strings.
