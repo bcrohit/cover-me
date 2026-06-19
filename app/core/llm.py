@@ -4,9 +4,10 @@ from typing import TypeVar
 
 from dotenv import load_dotenv
 from groq import Groq
+from google import genai
 from pydantic import BaseModel, ValidationError
 
-from core.config import LLM_MAX_RETRIES, LLM_MODEL, LLM_TEMPERATURE
+from core.config import LLM_MAX_RETRIES, LLM_MODEL, LLM_TEMPERATURE, GENAI_MODEL
 from utils import extract_json_block, get_prompt
 
 load_dotenv()
@@ -15,11 +16,12 @@ api_key = os.environ.get("GROQ_API_KEY")
 assert api_key, "GROQ_API_KEY is required for LLM pipeline."
 
 groq = Groq(api_key=api_key)
+google = genai.Client()
 
 T = TypeVar("T", bound=BaseModel)
 
 
-def call_llm(system_message: str, user_message: str, temperature: float = LLM_TEMPERATURE) -> str:
+def call_llm_groq(system_message: str, user_message: str, temperature: float = LLM_TEMPERATURE) -> str:
     response = groq.chat.completions.create(
         messages=[
             {"role": "system", "content": system_message},
@@ -30,6 +32,16 @@ def call_llm(system_message: str, user_message: str, temperature: float = LLM_TE
         stream=False,
     )
     return response.choices[0].message.content or ""
+
+def call_llm(system_message: str, user_message: str):
+    response = google.models.generate_content(
+        model=GENAI_MODEL,
+        contents=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message},
+        ],
+    )
+    return response.text
 
 
 def call_structured_llm(
