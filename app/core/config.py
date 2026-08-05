@@ -6,6 +6,6 @@ CONTENTS_DIR = Path("assets/contents")
 TEMPLATES_DIR = Path("assets/templates")
 
 LLM_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-GENAI_MODEL = "gemini-3.5-flash"
+GENAI_MODEL = "gemini-3.1-flash-lite"
 LLM_TEMPERATURE = 0.3
 LLM_MAX_RETRIES = 3
